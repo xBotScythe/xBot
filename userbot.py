@@ -5,6 +5,7 @@ Against ToS, so please do not use!
 from discord.ext import commands
 from generative import xBotAI
 from dotenv import load_dotenv
+from random import randint
 import os, discord, asyncio, time, shlex # convert all elif statements using multiple inputs into 1 input line!
 
 load_dotenv()
@@ -19,7 +20,17 @@ Make getting channel_id and msg_id (if applicable) its own function
 Make command response system better than if-chain (i don't like yanderedev code)
 Add commands!
 """
+async def fetch_messages(channel:discord.channel, limit:int=10):
+    messages = channel.history(limit=limit)
+    message_list = []
+    async for message in messages:
+        message_list.append(message)
+    return message_list
+
+
+
 async def handle_input(tokens:list): # takes list of arguments and generates replies/sends replies based on them.
+    global auto_reply_toggle
     if(tokens[0].lower() == "topic"):
         try:
             topic = tokens[1]
@@ -32,7 +43,6 @@ async def handle_input(tokens:list): # takes list of arguments and generates rep
             channel_id = int(tokens[1])
             msg_id = int(tokens[2])
             tone = tokens[3]
-            print(channel_id, msg_id, tone) #DEBUG
             if(tone == ""):
                 tone = "neutral"
             channel = client.get_channel(channel_id)
@@ -40,7 +50,7 @@ async def handle_input(tokens:list): # takes list of arguments and generates rep
             response = ai.generate_message("", og_message_text.content, tone)
             await channel.send(response, reference=og_message_text, mention_author=False)
         except IndexError:
-            print("Usage: replyautogen <CHANNEL_ID> <MSG_ID>")                
+            print("Usage: replyautogen <CHANNEL_ID> <MSG_ID> <TONE>")                
     elif(tokens[0].lower() == "directreply"):
         try:
             channel_id = int(tokens[1])
@@ -92,6 +102,38 @@ async def handle_input(tokens:list): # takes list of arguments and generates rep
             await channel.send(response)
         except IndexError:
             print("Usage: directmsg <CHANNEL_ID> <RESPONSE>")
+    elif(tokens[0].lower() == "randomreply"):
+        try:
+            channel_id = int(tokens[1])
+            channel = client.get_channel(channel_id)
+            tone = tokens[2]
+            # fetch previous messages
+            messages = await fetch_messages(channel)
+            random_msg = messages[randint(0,9)]
+            response = ai.generate_message("", random_msg.content, tone=tone)
+            await channel.send(response, reference=random_msg, mention_author=False)
+        except IndexError:
+            print("Usage: randomreply <CHANNEL_ID> <TONE>")
+    elif(tokens[0].lower() == "startconvo"):
+        try:
+            channel_id = int(tokens[1])
+            channel = client.get_channel(channel_id)
+            if(tokens[2].lower() == "true"):
+                try:
+                    if(tokens[3].isnumeric()):
+                        limit = int(tokens[3])
+                        prompt = "Consider the given messages and the previously given topic. Reply with a conversation starter based off of these messages and the given topic (if it relates to the following messages):\n"
+                except IndexError:
+                    limit = 10
+                messages = await fetch_messages(channel, limit)
+                for message in messages:
+                    prompt += message.content + "\n"
+            else:
+                prompt = "Consider the previously given topic. Respond with a conversation starter based off of it."
+            response = ai.custom_message(prompt)
+            await channel.send(response)  
+        except IndexError:
+            print("Usage: startconvo <CHANNEL_ID> <CONTEXT_TRUE_FALSE> <CONTEXT_MSG_AMOUNT>")
     elif(tokens[0].lower() == "help"):
         print("Help\n----\n'help'         - This command!" +
                         "\n'replyautogen' - Replies to message given channel and message ID, as well as tone. Considers previous message context." +
@@ -100,7 +142,8 @@ async def handle_input(tokens:list): # takes list of arguments and generates rep
                         "\n'promptmsg'    - Sends message given channel ID, using tone and prompt in order to generate message. " +
                         "\n'autoreply'    - Toggles automatically replying to messages that are replying to the bot's message(s). By default this is set to ON." +
                         "\n'directmsg'    - Sends exact message entered given channel ID." +
-                        "\n'setdefaults'  - Sets default channel ID and/or other default settings. Work in Progress!") # implement         
+                        "\n'randomreply'  - Given channel ID, randomly replies to one of the previous 10 messages in chat." +
+                        "\n'startconvo'   - Tries to start a conversation based on the current topic. If context is enabled, uses the previous 10 messages for context.")
     else:
         print("Invalid command. Try again or type 'help' for help.")
 
@@ -112,84 +155,25 @@ async def input_loop(): # used for command line interface
         command = await asyncio.to_thread(input, "> ")
         command = command.strip()
         tokens = shlex.split(command)
-        print(tokens) # DEBUG
         if(tokens[0].lower() == "exit"):
             await client.close()
             break
         await handle_input(tokens)
-        # if(command.lower() == "exit"): # add try/except to handle invalid commands!
-        #     await client.close()
-        #     break
-        # if(command.lower() == "topic"): 
-        #     topic = await asyncio.to_thread(input, "Enter a topic: ")
-        #     ai.set_topic(topic)
-        # elif(tokens[0] == "replyautogen"):
-        #     channel_id = int(tokens[1])
-        #     msg_id = int(tokens[2])
-        #     tone = tokens[3]
-        #     print(channel_id, msg_id, tone) #DEBUG
-        #     if(tone == ""):
-        #         tone = "neutral"
-        #     channel = client.get_channel(channel_id)
-        #     og_message_text = await channel.fetch_message(msg_id)
-        #     response = ai.generate_message("", og_message_text.content, tone)
-        #     await channel.send(response, reference=og_message_text, mention_author=False)
-        # elif(command.lower() == "directreply"):
-        #     channel_id = int(await asyncio.to_thread(input, "Enter channel ID: "))
-        #     msg_id = int(await asyncio.to_thread(input, "Enter message ID: "))
-        #     response = await asyncio.to_thread(input, "Enter a reply: ")
-        #     channel = client.get_channel(channel_id)
-        #     og_msg = await channel.fetch_message(msg_id)
-        # elif(command.lower() == "directmsg"):
-        #     channel_id = int(await asyncio.to_thread(input, "Enter channel ID: "))
-        #     response = await asyncio.to_thread(input, "Enter a reply: ")
-        #     channel = client.get_channel(channel_id)
-        #     await channel.send(response)
-        # elif(command.lower() == "promptreply"):
-        #     channel_id = int(await asyncio.to_thread(input, "Enter channel ID: "))
-        #     msg_id = int(await asyncio.to_thread(input, "Enter message ID: "))
-        #     tone = await asyncio.to_thread(input, "Enter a tone (leave blank for neutral): ")
-        #     if(tone == ""):
-        #         tone = "neutral"
-        #     prompt = await asyncio.to_thread(input, "Enter a prompt: ")
-        #     channel = client.get_channel(channel_id)
-        #     og_msg = await channel.fetch_message(msg_id)
-        #     response = ai.custom_message(prompt, tone)
-        #     await channel.send(response, reference=og_msg, mention_author=False)
-        # elif(command.lower() == "promptmsg"):
-        #     channel_id = int(await asyncio.to_thread(input, "Enter channel ID: "))
-        #     channel = client.get_channel(channel_id)
-        #     tone = await asyncio.to_thread(input, "Enter a tone (leave blank for neutral): ")
-        #     prompt = await asyncio.to_thread(input, "Enter a prompt: ")
-        #     response = ai.custom_message(prompt, tone)
-        #     await channel.send(response)
-        # elif(command.lower() == "autoreply"):
-        #     auto_reply_toggle = not auto_reply_toggle
-        #     print("Auto reply: " + str(auto_reply_toggle))
-        # elif(command.lower() == 'directmsg'):
-        #     pass # implement!
-        # elif(command.lower() == "help"):
-        #     print("Help\n----\n'help'         - This command!" +
-        #                     "\n'replyautogen' - Replies to message given channel and message ID, as well as tone. Considers previous message context." +
-        #                     "\n'directreply'  - Replies exact message entered given channel and message ID." +
-        #                     "\n'promptreply'  - Replies to message given channel and message ID, as well as tone and a custom prompt." +
-        #                     "\n'promptmsg'    - Sends message given channel ID, using tone and prompt in order to generate message. " +
-        #                     "\n'autoreply'    - Toggles automatically replying to messages that are replying to the bot's message(s). By default this is set to ON." +
-        #                     "\n'directmsg'    - Sends exact message entered given channel ID." + # implement 
-        #                     "\n'setdefaults'  - Sets default channel ID and/or other default settings.") # implement         
-        # else:
-        #     print("Invalid command. Try again or type 'help' for help.")
             
 @client.event
 async def on_message(message):
     if(message.author == client.user): # checks to ensure message author is not self bot
         return
-    if(message.reference and auto_reply_toggle):
+    if((message.reference and auto_reply_toggle)):
         og_msg = await message.channel.fetch_message(message.reference.message_id) # gets message to reply to
         if(og_msg.author == client.user): # checks if message is reply
             response = ai.generate_message(og_msg.content, message.content) # generates reply based on previous message
-            time.sleep(2)
+            time.sleep(5)
             await message.channel.send(response)
+    elif((client.user.mentioned_in(message) and auto_reply_toggle)):
+        response = ai.generate_message("", message.clean_content)
+        time.sleep(3)
+        await message.channel.send(response)
         
         
 async def main():
