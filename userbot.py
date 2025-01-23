@@ -36,7 +36,7 @@ async def input_loop(): # used for command line interface
         elif(command.lower() == "directreply"):
             channel_id = int(await asyncio.to_thread(input, "Enter channel ID: "))
             msg_id = int(await asyncio.to_thread(input, "Enter message ID: "))
-            response = await asyncio.tothread(input, "Enter a reply: ")
+            response = await asyncio.to_thread(input, "Enter a reply: ")
             channel = client.get_channel(channel_id)
             og_msg = await channel.fetch_message(msg_id)
             await channel.send(response, reference=og_msg, mention_author=False)
