@@ -5,7 +5,7 @@ Against ToS, so please do not use!
 from discord.ext import commands
 from generative import xBotAI
 from dotenv import load_dotenv
-import os, discord, asyncio
+import os, discord, asyncio, time
 
 load_dotenv()
 api_key = os.getenv("GENAI_KEY")
@@ -39,7 +39,11 @@ async def input_loop(): # used for command line interface
             response = await asyncio.to_thread(input, "Enter a reply: ")
             channel = client.get_channel(channel_id)
             og_msg = await channel.fetch_message(msg_id)
-            await channel.send(response, reference=og_msg, mention_author=False)
+        elif(command.lower() == "directmsg"):
+            channel_id = int(await asyncio.to_thread(input, "Enter channel ID: "))
+            response = await asyncio.to_thread(input, "Enter a reply: ")
+            channel = client.get_channel(channel_id)
+            await channel.send(response)
         elif(command.lower() == "promptreply"):
             channel_id = int(await asyncio.to_thread(input, "Enter channel ID: "))
             msg_id = int(await asyncio.to_thread(input, "Enter message ID: "))
@@ -75,6 +79,7 @@ async def on_message(message):
         og_msg = await message.channel.fetch_message(message.reference.message_id) # gets message to reply to
         if(og_msg.author == client.user): # checks if message is reply
             response = ai.generate_message(og_msg.content, message.content) # generates reply based on previous message
+            time.sleep(2)
             await message.channel.send(response)
         
         
